@@ -77,6 +77,29 @@ function Live2DViewerInner() {
         strategy="afterInteractive"
         onLoad={() => {
           logger.log('cubismcore loaded')
+          // Cubism Core 6.x で drawables.renderOrders が廃止された。
+          // drawOrders はアーティストが Cubism Editor で設定した「レイヤー値」(任意の整数、
+          // 例: 500/600/700) なので、これを安定ソートして 0..N-1 の順位に変換して返す。
+          const W = window as any
+          const DrawablesProto = W.Live2DCubismCore?.Drawables?.prototype
+          if (DrawablesProto && !('renderOrders' in DrawablesProto)) {
+            Object.defineProperty(DrawablesProto, 'renderOrders', {
+              get() {
+                const drawOrders = this.drawOrders
+                const n = drawOrders.length
+                const indices = new Array(n)
+                for (let i = 0; i < n; i++) indices[i] = i
+                indices.sort((a, b) => drawOrders[a] - drawOrders[b])
+                const result = new Int32Array(n)
+                for (let k = 0; k < n; k++) result[indices[k]] = k
+                return result
+              },
+              configurable: true,
+            })
+            logger.log(
+              '[Patch] Drawables.renderOrders computed from drawOrders'
+            )
+          }
           setIsCubismCoreLoaded(true)
         }}
         onError={() => {
